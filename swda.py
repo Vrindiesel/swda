@@ -116,13 +116,15 @@ class CorpusReader:
         for filename in glob.glob(os.path.join(self.src_dirname, "sw*", "*.csv")):
             # Optional progress bar:
             if display_progress:
+                raw_input(">")
                 sys.stderr.write("\r")
                 sys.stderr.write("transcript %s" % i)
                 sys.stderr.flush(); i += 1
             # Yield the Transcript instance:
             yield Transcript(filename, self.metadata)
         # Closing blank line for the progress bar:
-        if display_progress: sys.stderr.write("\n") 
+        if display_progress:
+            sys.stderr.write("\n")
                     
     def iter_utterances(self, display_progress=True):
         """
@@ -138,13 +140,16 @@ class CorpusReader:
             for utt in trans.utterances:
                 # Optional progress bar.
                 if display_progress:
+                    raw_input(">")
                     sys.stderr.write("\r")
                     sys.stderr.write("utterance %s" % i)
                     sys.stderr.flush(); i += 1
                 # Yield the Utterance instance:
                 yield utt
         # Closing blank line for the progress bar:
-        if display_progress: sys.stderr.write("\n") 
+        if display_progress:
+            raw_input(">>")
+            sys.stderr.write("\n")
 
 ######################################################################
 
