@@ -149,17 +149,34 @@ def build_dataset(all_data, split_ratio=(0.8, 0.1, 0.1)):
     return split_data
 
 
+def convert2text():
+    splitnames = ["train", "dev", "test"]
+    for splitname in splitnames:
+        df = pd.read_csv("ready_data/swda-{}.csv".format(splitname))
+        sents = [row.words.lower().strip().rstrip(" \n") for row in df.itertuples()]
+        with open("ready_data/{}-sents.txt".format(splitname), "w") as fout:
+            fout.write("\n".join(sents))
+
+        labels = [row.label.strip().rstrip(" \n") for row in df.itertuples()]
+        with open("ready_data/{}-labels.txt".format(splitname), "w") as fout:
+            fout.write("\n".join(labels))
+
+
+def split_data():
+    all_data = pd.read_csv("ready_data/all_data.csv")
+    dataset = build_dataset(all_data, (0.8, 0.1, 0.1))
+    for splitname, vals in dataset.items():
+        df = pd.DataFrame(vals)
+        df.to_csv("ready_data/swda-{}.csv".format(splitname), index=False)
 
 def main():
     #data = load_dataset()
     #all_data = pd.DataFrame(data)
     #all_data.to_csv("ready_data/all_data.csv", index=False)
 
-    all_data = pd.read_csv("ready_data/all_data.csv")
-    dataset = build_dataset(all_data, (0.8, 0.1, 0.1))
-    for splitname, vals in dataset.items():
-        df = pd.DataFrame(vals)
-        df.to_csv("ready_data/swda-{}.csv".format(splitname), index=False)
+    #split_data()
+
+    convert2text()
 
 
 
