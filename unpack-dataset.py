@@ -1,123 +1,74 @@
 
 from swda import CorpusReader
-from data_config import valid_set_idx, test_set_idx
+from data_config import valid_set_idx, test_set_idx, train_set_idx
 import pandas as pd
+
+import json
+
+def get_partition(conv_id):
+    if conv_id in valid_set_idx:
+        return "dev"
+    elif conv_id in test_set_idx:
+        return "test"
+    else:
+        return "train"
+
 
 def load_swda_corpus_data(swda_directory):
     print('Loading SwDA Corpus...')
     corpus_reader = CorpusReader(swda_directory)
+    conversations = []
 
-    talks = []
-    talk_names = []
-    tags_seen = {}
-    tag_occurances = {}
-    num_tags_seen = 0
-    for transcript in corpus_reader.iter_transcripts(False):
+    for transcript in corpus_reader.iter_transcripts(display_progress=False):
         name = 'sw' + str(transcript.conversation_no)
-        talk_names.append(name)
-        conversation_content = []
-        conversation_tags = []
-        for utterance in transcript.utterances:
-            conversation_content.append( utterance.text_words(True) )
-            tag = utterance.damsl_act_tag()
-            conversation_tags.append( tag )
-            if tag not in tags_seen:
-                tags_seen[tag] = num_tags_seen
-                num_tags_seen += 1
-                tag_occurances[tag] = 1
-            else:
-                tag_occurances[tag] += 1
-        talks.append( (conversation_content, conversation_tags) )
 
-    print('\nFound ' + str(len(tags_seen))+ ' different utterance tags.\n')
+        conv = {
+            "name": name,
+            "utterances": [],
+            "partition_name": get_partition(name)
+        }
 
-    for talk in talks:
-        conversation_tags = talk[1]
-        for i in range(len(conversation_tags)):
-            #conversation_tags[i] = tags_seen[ conversation_tags[i] ]
-            conversation_tags[i] = conversation_tags[i]
+        for j, utterance in enumerate(transcript.utterances):
+            utt = {
+                "text": " ".join(utterance.text_words(filter_disfluency=True)),
+                "act_tag": utterance.act_tag,
+                "damsl_act_tag": utterance.damsl_act_tag(),
+                "caller": utterance.caller,
+            }
 
-    print('Loaded SwDA Corpus.')
-    return talks, talk_names, tags_seen, tag_occurances
+            #utt_text = " ".join(utterance.text_words(filter_disfluency=True))
+            #print("[{}] {}".format(j, utt_text))
+            #print("\t==>", utterance.act_tag, utterance.damsl_act_tag())
 
+            conv["utterances"].append(utt)
 
-def form_datasets(talks, talk_names, max_sentence_length, word_dimensions):
-    print('Forming dataset appropriately...')
+        conversations.append(conv)
 
-    x_train_list = []
-    y_train_list = []
-    x_valid_list = []
-    y_valid_list = []
-    x_test_list = []
-    y_test_list = []
-    t_i = 0
-    for i in range(len(talks)):
-        t = talks[i]
-        if talk_names[i] in test_set_idx:
-            x_test_list.append(t[0])
-            y_test_list.append(t[1])
-        if talk_names[i] in valid_set_idx:
-            x_valid_list.append(t[0])
-            y_valid_list.append(t[1])
-        else:
-            x_train_list.append(t[0])
-            y_train_list.append(t[1])
-        t_i += 1
+    corpus = {
+        "partition_source": "https://github.com/Franck-Dernoncourt/naacl2016",
+        "train_ids": list(train_set_idx),
+        "test_ids": list(test_set_idx),
+        "dev_set_ids": list(valid_set_idx),
+        "conversations": conversations
+    }
 
-    print('Formed dataset appropriately.')
+    return corpus
 
 
-    return ((x_train_list, y_train_list), (x_valid_list, y_valid_list), (x_test_list, y_test_list))
 
 
 
 def main():
 
-    tag_df = pd.read_csv("swda/Tags.tsv", sep="\t")
-    tag_map = {}
-    for row in tag_df.itertuples():
-        tag_map[row.act_tag] = row.name
+    corpus = load_swda_corpus_data("swda")
 
-
-    talks_read, talk_names, tags_seen, tag_occurances = load_swda_corpus_data("swda")
-
-    for c in talks_read:
-        for u in c[0]:
-            for i in range(len(u)):
-                w = u[i]
-
-                if w[-1] in {",", ".", "?", "!"}:
-                    pass
-
-                if w.rstrip(',') != w or w.rstrip('.') != w or w.rstrip('?') != w or w.rstrip('!') != w:
-                    u[i] = w.rstrip(',').rstrip('.').rstrip('?').rstrip('!')
+    with open("swda-corpus.json", "w") as fout:
+        json.dump(corpus, fout)
 
 
 
-    #talks = [([[word_to_index[w.lower()] for w in u] for u in c[0]], c[1]) for c in talks_read]
-    #talks_read.clear()
-    talks = talks_read
-    train, dev, test = form_datasets(talks, talk_names, None, None)
-    data = {"train": train, "dev": dev, "test": test}
 
-    all_labels = []
-    for name, d in data.items():
-        df = {"text": [], "tag": [], "label": []}
 
-        for x,y in zip(*d):
-            x = [" ".join(words) for words in x]
-            df["text"].extend(x)
-            df["tag"].extend(y)
-            #print("y:", y)
-            #input(">>>")
-
-            df["label"].extend([tag_map.get(t, "unk") for t in y])
-        all_labels.extend(df["label"])
-
-        df = pd.DataFrame(df)
-        df.to_csv("output/{}.tsv".format(name), sep="\t", index=False)
-
-    print("num_labels:", len(set(all_labels)))
 
 if __name__ == "__main__":
     main()
